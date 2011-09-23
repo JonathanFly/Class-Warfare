@@ -21,15 +21,15 @@
 
 #define SIZE_OF_INT		2147483647		// without 0
 
-//This code is based off on the Class Rescriptions Mod from Tsunami: http://forums.alliedmods.net/showthread.php?t=73104
+//This code is based on the Class Restrictions Mod from Tsunami: http://forums.alliedmods.net/showthread.php?t=73104
 
 public Plugin:myinfo =
 {
     name        = "Class Warfare",
-    author      = "Tsunami,JonathanFly",
+    author      = "Tsunami,JonathanFlynn",
     description = "Class Vs Class",
     version     = PL_VERSION,
-    url         = "http://www.tsunami-productions.nl"
+    url         = "https://github.com/JonathanFlynn/Class-Warfare"
 }
 
 new g_iClass[MAXPLAYERS + 1];
@@ -48,10 +48,10 @@ new bool:switch_up_classes;
 
 public OnPluginStart()
 {
-    CreateConVar("sm_classrestrict_version", PL_VERSION, "Restrict classes in TF2.", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY);
-    g_hEnabled                                = CreateConVar("sm_classrestrict_enabled",       "1",  "Enable/disable restricting classes in TF2.");
-    g_hFlags                                  = CreateConVar("sm_classrestrict_flags",         "",   "Admin flags for restricted classes in TF2.");
-    g_hImmunity                               = CreateConVar("sm_classrestrict_immunity",      "0",  "Enable/disable admins being immune for restricted classes in TF2.");
+    CreateConVar("sm_classwarfare_version", PL_VERSION, "Class Warfare in TF2.", FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY);
+    g_hEnabled                                = CreateConVar("sm_classwarfare_enabled",       "1",  "Enable/disable the Class Warfare mod in TF2.");
+    g_hFlags                                  = CreateConVar("sm_classwarfare_flags",         "",   "Admin flags for restricted classes in TF2.");
+    g_hImmunity                               = CreateConVar("sm_classwarfare_immunity",      "0",  "Enable/disable admins being immune for restricted classes in TF2.");
     
     HookEvent("player_changeclass", Event_PlayerClass);
     HookEvent("player_spawn",       Event_PlayerSpawn);
@@ -62,7 +62,7 @@ public OnPluginStart()
     
     HookEvent("teamplay_round_win",Event_RoundOver);
     
-    //Hmn, can't seem to get these random functions to seed properly.   
+    //Can't seem to get these random functions to seed properly.   
     new seed[4];
     seed[0] = GetTime();
     seed[1] = GetTime() / 42;
@@ -101,8 +101,11 @@ public Event_RoundOver(Handle:event, const String:name[], bool:dontBroadcast) {
     //new FlagCapLimit = GetEventInt(event, "flagcaplimit"); 
 
     //PrintToChatAll("Full Round? %d | WinnerTeam: %d | WinReason: %d | FlagCapLimit: %d", FullRound, WinnerTeam, WinReason, FlagCapLimit); 
-
-    //if(FullRound == 1) //On Dustboal, each stage is a miniround.  With this commented out it switched up classes on those too.
+    
+    //On Dustbowl, each stage is a mini-round.  If we switch up between minirounds,
+    //the teams may end up in a stalemate with lots of times on the clock... 
+    
+    //if(FullRound == 1) 
     //{
     switch_up_classes=true;
     //}
@@ -127,6 +130,10 @@ public OnClientPutInServer(client)
 
 public Event_PlayerClass(Handle:event, const String:name[], bool:dontBroadcast)
 {
+
+    if(!GetConVarBool(g_hEnabled))
+    return;
+    
     new iClient = GetClientOfUserId(GetEventInt(event, "userid")),
     iClass  = GetEventInt(event, "class"),
     iTeam   = GetClientTeam(iClient);
@@ -144,6 +151,9 @@ public Event_PlayerClass(Handle:event, const String:name[], bool:dontBroadcast)
 
 public Action:Event_RoundActive(Handle:event, const String:name[], bool:dontBroadcast)
 {
+    if(!GetConVarBool(g_hEnabled))
+    return;
+    
     //When the round is active and players can move
     //If no setup time is found then game continues as usual
     new m_nSetupTimeLength = FindSendPropOffs("CTeamRoundTimer", "m_nSetupTimeLength");    
@@ -169,6 +179,7 @@ public Action:Event_RoundActive(Handle:event, const String:name[], bool:dontBroa
                 PrintToChatAll("%s%s%s%s", "New Round of Class Warfare! Red ", ClassNames[red_class], " vs Blue ", ClassNames[blue_class] );
                 switch_up_classes=false;               
             } else {
+                //ToDo: This is still being printed an extra time right before a new round, even when checking for setupTime.
                 PrintCenterTextAll("%s%s%s%s", "Welcome to Class Warfare! Red ", ClassNames[red_class], " vs Blue ", ClassNames[blue_class] );
                 PrintToChatAll("%s%s%s%s", "Welcome to Class Warfare! Red ", ClassNames[red_class], " vs Blue ", ClassNames[blue_class] );             
             }    
@@ -180,6 +191,9 @@ public Action:Event_RoundActive(Handle:event, const String:name[], bool:dontBroa
 
 public Action:Event_SetupFinished(Handle:event,  const String:name[], bool:dontBroadcast) 
 {
+    if(!GetConVarBool(g_hEnabled))
+    return;
+    
     switch_up_classes = false;
     ChangeBotClasses();
     
@@ -191,12 +205,14 @@ public Action:Event_SetupFinished(Handle:event,  const String:name[], bool:dontB
 
 public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 {
+    if(!GetConVarBool(g_hEnabled))
+    return;
+    
     new iClient = GetClientOfUserId(GetEventInt(event, "userid")),
     iTeam   = GetClientTeam(iClient);
      
     if(!(GetConVarBool(g_hImmunity) && IsImmune(iClient)) && IsFull(iTeam, (g_iClass[iClient] = _:TF2_GetPlayerClass(iClient))))
-    {
-        
+    {       
         ShowVGUIPanel(iClient, iTeam == TF_TEAM_BLU ? "class_blue" : "class_red");
         EmitSoundToClient(iClient, g_sSounds[g_iClass[iClient]]);
         
@@ -207,6 +223,9 @@ public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 
 public Event_PlayerTeam(Handle:event,  const String:name[], bool:dontBroadcast)
 {
+    if(!GetConVarBool(g_hEnabled))
+    return;
+    
     new iClient = GetClientOfUserId(GetEventInt(event, "userid")),
     iTeam   = GetEventInt(event, "team");
     
@@ -265,7 +284,7 @@ bool:IsImmune(iClient)
 }
 
 ChangeBotClasses() {
-    //Manually change the bots to the allowed classes, otherwise they just stay dead the whole round.       
+    //Manually force the bots to change to an allowed class, otherwise they just stay dead the whole round.       
     for (new i = 1; i <= MaxClients; ++i) {            
 
         if (IsClientConnected(i) && IsFakeClient(i)) {
