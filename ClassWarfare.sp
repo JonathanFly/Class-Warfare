@@ -19,11 +19,13 @@
 #define TF_TEAM_BLU					3
 #define TF_TEAM_RED					2
 
+#define SIZE_OF_INT		2147483647		// without 0
+
 public Plugin:myinfo =
 {
-	name        = "TF2 Class Restrictions, Class Warfare",
+	name        = "Class Warfare",
 	author      = "Tsunami,JonathanFly",
-	description = "Restrict classes in TF2.  Class Vs Class",
+	description = "Class Vs Class",
 	version     = PL_VERSION,
 	url         = "http://www.tsunami-productions.nl"
 }
@@ -58,15 +60,35 @@ public OnPluginStart()
     
     HookEvent("teamplay_round_win",Event_RoundOver);
        
+    //Going nuts, can't seem to get these random functions to seed!   
+    new seed[4];
+	seed[0] = GetTime();
+	seed[1] = GetTime() / 42;
+    seed[2] = GetTime() / 42;
+	seed[3] = GetTime() / 137;
+
+	for (new i = 0; i < 4; i++)
+	{
+		LogError("Seed[%i] = %i", i, seed[i]);
+	}
+
+	SetURandomSeed(seed, 4);
+
+
+    for (new i = 0; i < 10; i++) {
+    LogError("Random[%i] = %i", i, Math_GetRandomInt(TF_CLASS_SCOUT, TF_CLASS_ENGINEER));
+    }    
     LimitAllClasses();
         
-    blue_class = GetRandomInt(TF_CLASS_SCOUT, TF_CLASS_ENGINEER);
-    red_class = GetRandomInt(TF_CLASS_SCOUT, TF_CLASS_ENGINEER);
+    blue_class = Math_GetRandomInt(TF_CLASS_SCOUT, TF_CLASS_ENGINEER);
+    red_class = Math_GetRandomInt(TF_CLASS_SCOUT, TF_CLASS_ENGINEER);
     
     g_hLimits[TF_TEAM_BLU][blue_class] = -1.0;
     g_hLimits[TF_TEAM_RED][red_class] = -1.0;
     
     switch_up_classes=false;
+    
+    
      
 }
 public Event_RoundOver(Handle:event, const String:name[], bool:dontBroadcast) {
@@ -76,9 +98,9 @@ public Event_RoundOver(Handle:event, const String:name[], bool:dontBroadcast) {
    new WinReason = GetEventInt(event, "winreason"); 
    new FlagCapLimit = GetEventInt(event, "flagcaplimit"); 
    
-   PrintToChatAll("Full Round? %d | WinnerTeam: %d | WinReason: %d | FlagCapLimit: %d", FullRound, WinnerTeam, WinReason, FlagCapLimit); 
+   //PrintToChatAll("Full Round? %d | WinnerTeam: %d | WinReason: %d | FlagCapLimit: %d", FullRound, WinnerTeam, WinReason, FlagCapLimit); 
  
-        //if(FullRound == 1)
+        //if(FullRound == 1) //On Dustboal, each stage is a miniround.  Could probably only reset for full rounds...
         //{
             switch_up_classes=true;
         //}
@@ -131,12 +153,14 @@ public Action:Event_RoundActive(Handle:event, const String:name[], bool:dontBroa
         
         if(setupTime > 0)
         {
+        
+        
             if (switch_up_classes) {
     
                 LimitAllClasses();
                 
-                blue_class = GetRandomInt(TF_CLASS_SCOUT, TF_CLASS_ENGINEER);
-                red_class = GetRandomInt(TF_CLASS_SCOUT, TF_CLASS_ENGINEER);
+                blue_class = Math_GetRandomInt(TF_CLASS_SCOUT, TF_CLASS_ENGINEER);
+                red_class = Math_GetRandomInt(TF_CLASS_SCOUT, TF_CLASS_ENGINEER);
                 
                 g_hLimits[TF_TEAM_BLU][blue_class] = -1.0;
                 g_hLimits[TF_TEAM_RED][red_class] = -1.0;
@@ -148,16 +172,18 @@ public Action:Event_RoundActive(Handle:event, const String:name[], bool:dontBroa
                 PrintCenterTextAll("%s%s%s%s", "Welcome to Class Warfare! Red ", ClassNames[red_class], " vs Blue ", ClassNames[blue_class] );
                 PrintToChatAll("%s%s%s%s", "Welcome to Class Warfare! Red ", ClassNames[red_class], " vs Blue ", ClassNames[blue_class] );             
                 }    
-                        
-            
+                  		
         }
     }
-}
+    ChangeBotClasses();
+} 
 
 public Action:Event_SetupFinished(Handle:event,  const String:name[], bool:dontBroadcast) 
 {
     switch_up_classes = false;
+    ChangeBotClasses();
 }  
+
 
 
 public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
@@ -165,10 +191,13 @@ public Event_PlayerSpawn(Handle:event, const String:name[], bool:dontBroadcast)
 	new iClient = GetClientOfUserId(GetEventInt(event, "userid")),
 			iTeam   = GetClientTeam(iClient);
 	
+        
 	if(!(GetConVarBool(g_hImmunity) && IsImmune(iClient)) && IsFull(iTeam, (g_iClass[iClient] = _:TF2_GetPlayerClass(iClient))))
 	{
+     
 		ShowVGUIPanel(iClient, iTeam == TF_TEAM_BLU ? "class_blue" : "class_red");
 		EmitSoundToClient(iClient, g_sSounds[g_iClass[iClient]]);
+              
 		PickClass(iClient);
         TF2_RegeneratePlayer(iClient);
 	}
@@ -233,6 +262,17 @@ bool:IsImmune(iClient)
 	return !StrEqual(sFlags, "") && GetUserFlagBits(iClient) & (ReadFlagString(sFlags)|ADMFLAG_ROOT);
 }
 
+ChangeBotClasses() {
+    //Manually force the bots to the classes               
+    for (new i = 1; i <= MaxClients; ++i) {            
+
+        if (IsClientConnected(i) && IsFakeClient(i)) {
+            PickClass(i);
+            TF2_RegeneratePlayer(i);            
+        }
+   }
+}
+
 LimitAllClasses() {
     for(new i = TF_CLASS_SCOUT; i <= TF_CLASS_ENGINEER; i++)
     {
@@ -244,7 +284,7 @@ LimitAllClasses() {
 PickClass(iClient)
 {
 	// Loop through all classes, starting at random class
-	for(new i = GetRandomInt(TF_CLASS_SCOUT, TF_CLASS_ENGINEER), iClass = i, iTeam = GetClientTeam(iClient);;)
+	for(new i = (TF_CLASS_SCOUT, TF_CLASS_ENGINEER), iClass = i, iTeam = GetClientTeam(iClient);;)
 	{
 		// If team's class is not full, set client's class
 		if(!IsFull(iTeam, i))
@@ -263,4 +303,15 @@ PickClass(iClient)
 		else if(i == iClass)
 			break;
 	}
+}
+
+stock Math_GetRandomInt(min, max)
+{
+	new random = GetURandomInt();
+	
+	if (random == 0) {
+		random++;
+	}
+
+	return RoundToCeil(float(random) / (float(SIZE_OF_INT) / float(max - min + 1))) + min - 1;
 }
