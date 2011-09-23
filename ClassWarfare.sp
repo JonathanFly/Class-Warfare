@@ -3,7 +3,7 @@
 #include <sourcemod>
 #include <tf2_stocks>
 
-#define PL_VERSION "0.6"
+#define PL_VERSION "0.1"
 
 #define TF_CLASS_DEMOMAN		4
 #define TF_CLASS_ENGINEER		9
@@ -20,6 +20,8 @@
 #define TF_TEAM_RED					2
 
 #define SIZE_OF_INT		2147483647		// without 0
+
+//This mode based off on the Class Rescriptions Mod from Tsunami: http://forums.alliedmods.net/showthread.php?t=73104
 
 public Plugin:myinfo =
 {
@@ -182,6 +184,9 @@ public Action:Event_SetupFinished(Handle:event,  const String:name[], bool:dontB
 {
     switch_up_classes = false;
     ChangeBotClasses();
+    
+    PrintCenterTextAll("%s%s%s%s", "Class Warfare Begins! Red ", ClassNames[red_class], " vs Blue ", ClassNames[blue_class] );
+    PrintToChatAll("%s%s%s%s", "Class Warfare Begins! ", ClassNames[red_class], " vs Blue ", ClassNames[blue_class] );
 }  
 
 
