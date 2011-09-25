@@ -36,13 +36,13 @@ new g_iClass[MAXPLAYERS + 1];
 new Handle:g_hEnabled;
 new Handle:g_hFlags;
 new Handle:g_hImmunity;
-
+new Handle:g_hClassChangeInterval;
 new Float:g_hLimits[4][10];
 new String:g_sSounds[10][24] = {"", "vo/scout_no03.wav",   "vo/sniper_no04.wav", "vo/soldier_no01.wav",
     "vo/demoman_no03.wav", "vo/medic_no03.wav",  "vo/heavy_no02.wav",
     "vo/pyro_no01.wav",    "vo/spy_no02.wav",    "vo/engineer_no03.wav"};
 
-static String:ClassNames[TFClassType][] = {"", "Scout", "Sniper", "Soldier", "Demoman", "Mendic", "Heavy", "Pyro", "Spy", "Engineer" };
+static String:ClassNames[TFClassType][] = {"", "Scout", "Sniper", "Soldier", "Demoman", "Medic", "Heavy", "Pyro", "Spy", "Engineer" };
 
 new g_iBlueClass;
 new g_iRedClass;
@@ -56,6 +56,7 @@ public OnPluginStart()
     g_hEnabled                                = CreateConVar("sm_classwarfare_enabled",       "1",  "Enable/disable the Class Warfare mod in TF2.");
     g_hFlags                                  = CreateConVar("sm_classwarfare_flags",         "",   "Admin flags for restricted classes in TF2.");
     g_hImmunity                               = CreateConVar("sm_classwarfare_immunity",      "0",  "Enable/disable admins being immune for restricted classes in TF2.");
+    g_hClassChangeInterval                        = CreateConVar("sm_classwarfare_change_interval",   "0",  "Shuffle the classes every x minutes, 0 for round only");
 
     HookEvent("player_changeclass", Event_PlayerClass);
     HookEvent("player_spawn",       Event_PlayerSpawn);
@@ -266,6 +267,11 @@ SetupClassRestrictions() {
     
     g_hLimits[TF_TEAM_BLU][g_iBlueClass] = -1.0;
     g_hLimits[TF_TEAM_RED][g_iRedClass] = -1.0; 
+
+    new seconds = GetConVarInt(g_hClassChangeInterval) * 60;
+    if (seconds > 0) { 
+        CreateTimer(float(seconds), TimerClassChange);
+    }
     
 }
 
